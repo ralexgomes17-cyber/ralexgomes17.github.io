@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aetheria — Sistema de Fichas de RPG</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Tela de carregamento -->
+    <div id="loadingScreen">
+        <div class="loader-dice">🎲</div>
+        <div class="loader-text">AETHERIA</div>
+        <div class="loader-bar"><div id="loaderFill"></div></div>
+    </div>
+
+    <!-- Layout principal -->
+    <div id="app" class="hidden">
+        <aside id="sidebar">
+            <div class="brand">
+                <div class="brand-icon">⚔️</div>
+                <div>
+                    <div class="brand-name">AETHERIA</div>
+                    <div class="brand-sub">Sistema de Fichas</div>
+                </div>
+            </div>
+            <nav class="nav">
+                <button class="nav-item active" data-view="home">
+                    <span class="nav-icon">🏠</span> Início
+                </button>
+                <button class="nav-item" data-view="create">
+                    <span class="nav-icon">✚</span> Criar Personagem
+                </button>
+                <button class="nav-item" data-view="library">
+                    <span class="nav-icon">📜</span> Minhas Fichas
+                    <span id="charCountBadge" class="badge">0</span>
+                </button>
+                <button class="nav-item" data-view="dice">
+                    <span class="nav-icon">🎲</span> Dados
+                </button>
+                <button class="nav-item" data-view="rules">
+                    <span class="nav-icon">📖</span> Regras
+                </button>
+                <button class="nav-item" data-view="settings">
+                    <span class="nav-icon">⚙️</span> Configurações
+                </button>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="player-status">
+                    <div class="avatar">🧙</div>
+                    <div>
+                        <div class="player-name">Jogador Mestre</div>
+                        <div class="player-level">Nível 10</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main id="mainContent">
+            <!-- VIEW: HOME -->
+            <section id="view-home" class="view active">
+                <div class="hero">
+                    <div class="hero-content">
+                        <div class="hero-eyebrow">SISTEMA DE FICHAS DIGITAIS</div>
+                        <h1 class="hero-title">AETHERIA</h1>
+                        <p class="hero-desc">Crie, gerencie e explore personagens em um mundo de fantasia sombria. Atributos, habilidades, equipamentos e dados em uma única ferramenta imersiva.</p>
+                        <div class="hero-buttons">
+                            <button class="btn btn-primary btn-lg" onclick="goTo('create')">
+                                <span>✚</span> Criar Personagem
+                            </button>
+                            <button class="btn btn-secondary btn-lg" onclick="goTo('library')">
+                                <span>📜</span> Minhas Fichas
+                            </button>
+                            <button class="btn btn-gold btn-lg" onclick="goTo('dice')">
+                                <span>🎲</span> Rolar Dados
+                            </button>
+                        </div>
+                    </div>
+                    <div class="hero-art">
+                        <div class="floating-dice d1">🎲</div>
+                        <div class="floating-dice d2">🗡️</div>
+                        <div class="floating-dice d3">🛡️</div>
+                        <div class="floating-dice d4">💎</div>
+                        <div class="character-figure">🧝</div>
+                        <div class="glow-ring"></div>
+                    </div>
+                </div>
+
+                <div class="features">
+                    <div class="feature-card">
+                        <div class="feature-icon">⚔️</div>
+                        <h3>Classes Variadas</h3>
+                        <p>Escolha entre 7 classes únicas, cada uma com atributos, habilidades e estilo de combate próprio.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🎲</div>
+                        <h3>Dados Interativos</h3>
+                        <p>Rolagem visual de d4 a d100 com fórmulas personalizadas como 2d6 + 3 e histórico completo.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📜</div>
+                        <h3>Gerenciamento Completo</h3>
+                        <p>Crie, edite, duplique, exclua, exporte e importe suas fichas com salvamento automático.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⚔️</div>
+                        <h3>Combate Dinâmico</h3>
+                        <p>Modo de batalha com rolagem de ataque, dano, cura e uso de habilidades em tempo real.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: CREATE CHARACTER -->
+            <section id="view-create" class="view">
+                <div class="create-header">
+                    <h2>📜 Criar Personagem</h2>
+                    <p>Guie-se pelo processo de criação em etapas. Seus dados são salvos automaticamente.</p>
+                </div>
+                <div class="steps-indicator">
+                    <div class="step active" data-step="1"><span>1</span> Informações</div>
+                    <div class="step-separator"></div>
+                    <div class="step" data-step="2"><span>2</span> Classe</div>
+                    <div class="step-separator"></div>
+                    <div class="step" data-step="3"><span>3</span> Atributos</div>
+                    <div class="step-separator"></div>
+                    <div class="step" data-step="4"><span>4</span> Habilidades</div>
+                    <div class="step-separator"></div>
+                    <div class="step" data-step="5"><span>5</span> Equipamentos</div>
+                </div>
+                <div class="create-container">
+                    <!-- Etapa 1: Informações básicas -->
+                    <div class="step-panel active" data-panel="1">
+                        <div class="panel-title">Informações Básicas</div>
+                        <div class="form-grid">
+                            <div class="form-field"><label>Nome do Personagem</label><input type="text" id="fName" placeholder="Ex: Sir Aldric"><span class="field-error" id="errName"></span></div>
+                            <div class="form-field"><label>Nome do Jogador</label><input type="text" id="fPlayer" placeholder="Ex: João"><span class="field-error" id="errPlayer"></span></div>
+                            <div class="form-field"><label>Idade</label><input type="number" id="fAge" min="1" max="120" placeholder="Ex: 25"><span class="field-error" id="errAge"></span></div>
+                            <div class="form-field"><label>Alinhamento</label>
+                                <select id="fAlignment">
+                                    <option>Neutro</option><option>Bom</option><option>Mau</option>
+                                    <option>Neutro Bom</option><option>Neutro Mau</option><option>Caótico Bom</option><option>Leial Neutro</option>
+                                </select>
+                            </div>
+                            <div class="form-field"><label>Nível</label>
+                                <select id="fLevel">
+                                    <option value="1" selected>1</option><option value="2">2</option><option value="3">3</option>
+                                    <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+                                    <option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option>
+                                </select>
+                            </div>
+                            <div class="form-field"><label>Experiência (XP)</label><input type="number" id="fXP" min="0" max="999999" value="0"><span class="field-error" id="errXP"></span></div>
+                            <div class="form-field full"><label>História / Origem</label><textarea id="fOrigin" rows="4" placeholder="Conte a história do seu personagem..."></textarea></div>
+                        </div>
+                        <div class="form-actions"><button class="btn btn-primary" onclick="nextStep()">Continuar →</button></div>
+                    </div>
+
+                    <!-- Etapa 2: Classes -->
+                    <div class="step-panel" data-panel="2">
+                        <div class="panel-title">Escolha sua Classe</div>
+                        <p class="panel-sub">Cada classe possui atributos recomendados, vida inicial e habilidades exclusivas.</p>
+                        <div class="class-grid" id="classGrid"></div>
+                        <div class="form-actions">
+                            <button class="btn btn-secondary" onclick="prevStep()">← Voltar</button>
+                            <button class="btn btn-primary" onclick="nextStep()">Continuar →</button>
+                        </div>
+                    </div>
+
+                    <!-- Etapa 3: Atributos -->
+                    <div class="step-panel" data-panel="3">
+                        <div class="panel-title">Distribuição de Atributos</div>
+                        <p class="panel-sub">Pontos restantes: <span id="pointsLeft" class="points-left">27</span></p>
+                        <div class="attr-grid" id="attrGrid"></div>
+                        <div class="form-actions">
+                            <button class="btn btn-secondary" onclick="prevStep()">← Voltar</button>
+                            <button class="btn btn-primary" onclick="nextStep()">Continuar →</button>
+                        </div>
+                    </div>
+
+                    <!-- Etapa 4: Habilidades -->
+                    <div class="step-panel" data-panel="4">
+                        <div class="panel-title">Selecione Habilidades</div>
+                        <p class="panel-sub">Escolha até 5 habilidades. As marcadas como "Classe" só aparecem para a classe selecionada.</p>
+                        <div class="skills-categories" id="skillsCategories"></div>
+                        <div class="form-actions">
+                            <button class="btn btn-secondary" onclick="prevStep()">← Voltar</button>
+                            <button class="btn btn-primary" onclick="nextStep()">Continuar →</button>
+                        </div>
+                    </div>
+
+                    <!-- Etapa 5: Equipamentos -->
+                    <div class="step-panel" data-panel="5">
+                        <div class="panel-title">Equipamentos Iniciais</div>
+                        <p class="panel-sub">Adicione itens ao inventário. Peso e valor são calculados automaticamente.</p>
+                        <div class="equip-picker" id="equipPicker"></div>
+                        <div class="form-actions">
+                            <button class="btn btn-secondary" onclick="prevStep()">← Voltar</button>
+                            <button class="btn btn-primary" onclick="nextStep()">Continuar →</button>
+                        </div>
+                    </div>
+
+                    <!-- Etapa 6: Revisão -->
+                    <div class="step-panel" data-panel="6">
+                        <div class="panel-title">Revisão Final</div>
+                        <div class="review-box" id="reviewBox"></div>
+                        <div class="form-actions">
+                            <button class="btn btn-secondary" onclick="prevStep()">← Voltar</button>
+                            <button class="btn btn-gold" onclick="finishCharacterCreation()">✨ Finalizar Personagem</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: LIBRARY -->
+            <section id="view-library" class="view">
+                <div class="library-header">
+                    <h2>📜 Minhas Fichas</h2>
+                    <button class="btn btn-gold" onclick="goTo('create')">✚ Criar Nova Ficha</button>
+                </div>
+                <div id="charCards" class="char-cards"></div>
+            </section>
+
+            <!-- VIEW: DICE -->
+            <section id="view-dice" class="view">
+                <div class="dice-header">
+                    <h2>🎲 Dados Interativos</h2>
+                    <p>Rolagem de dados com animação, histórico e fórmulas personalizadas.</p>
+                </div>
+                <div class="dice-grid" id="diceGrid"></div>
+                <div class="custom-roll">
+                    <div class="panel-title">Rolagem Personalizada</div>
+                    <div class="custom-roll-input">
+                        <input type="text" id="customRollInput" placeholder="Ex: 2d6 + 3" onkeypress="if(event.key==='Enter') rollCustom()">
+                        <button class="btn btn-gold" onclick="rollCustom()">Rolar</button>
+                    </div>
+                    <div class="custom-hints">
+                        <span>d4, d6, d8, d10, d12, d20, d100</span>
+                        <span>Ex: 2d6 + 3</span>
+                        <span>Ex: 3d8 - 1</span>
+                    </div>
+                </div>
+                <div class="dice-history">
+                    <div class="panel-title">Histórico de Rolagens</div>
+                    <div id="diceHistory" class="dice-history-list"></div>
+                </div>
+            </section>
+
+            <!-- VIEW: RULES -->
+            <section id="view-rules" class="view">
+                <div class="rules-header">
+                    <h2>📖 Regras do Sistema</h2>
+                </div>
+                <div class="rules-content">
+                    <div class="rule-block">
+                        <h3>⚔️ Sistema de Combate</h3>
+                        <p>Para ataques, role um d20 e some o bônus de ataque. Se o resultado for 20, é um acerto crítico (dobra o dano). Se for 1, é uma falha crítica.</p>
+                    </div>
+                    <div class="rule-block">
+                        <h3>🛡️ Testes de Habilidade</h3>
+                        <p>Role um d20 e some o modificador da habilidade. O CD (Classe de Dificuldade) varia conforme a ação, geralmente 10, 15 ou 20.</p>
+                    </div>
+                    <div class="rule-block">
+                        <h3>🎲 Modificadores</h3>
+                        <p>Modificador = (Atributo - 10) / 2, arredondado para baixo. Ex: Força 16 → +3, Destreza 14 → +2, Carisma 8 → -1.</p>
+                    </div>
+                    <div class="rule-block">
+                        <h3>💀 Pontos de Vida</h3>
+                        <p>Vida máxima depende da classe e do nível. Poções de cura restauram 1d4 + 2 de vida. Ao chegar a 0, o personagem cai inconsciente.</p>
+                    </div>
+                    <div class="rule-block">
+                        <h3>✨ Crítico e Falha Crítica</h3>
+                        <p>Rolagens naturais 20 são críticas (sucesso garantido em ataques e testes). Rolagens naturais 1 são falhas críticas (fracasso garantido).</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: SETTINGS -->
+            <section id="view-settings" class="view">
+                <div class="settings-header">
+                    <h2>⚙️ Configurações</h2>
+                </div>
+                <div class="settings-content">
+                    <div class="setting-row">
+                        <div>
+                            <h3>🌐 Idioma</h3>
+                            <p>Idioma da interface</p>
+                        </div>
+                        <select id="settingLang" class="select-setting">
+                            <option value="pt">Português</option>
+                            <option value="en">English</option>
+                        </select>
+                    </div>
+                    <div class="setting-row">
+                        <div>
+                            <h3>🎨 Tema Visual</h3>
+                            <p>Alternar entre tema escuro e claro</p>
+                        </div>
+                        <button class="btn btn-secondary" onclick="toggleTheme()">🌙 Tema Claro/Escuro</button>
+                    </div>
+                    <div class="setting-row">
+                        <div>
+                            <h3>🗑️ Gerenciar Dados</h3>
+                            <p>Exportar todas as fichas ou limpar dados locais</p>
+                        </div>
+                        <div class="setting-actions">
+                            <button class="btn btn-secondary" onclick="exportAllJSON()">⬇ Exportar JSON</button>
+                            <button class="btn btn-danger" onclick="resetAllData()">🗑️ Limpar Tudo</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: CHARACTER SHEET -->
+            <section id="view-sheet" class="view">
+                <div class="sheet-header">
+                    <div>
+                        <h2 id="sheetName">Personagem</h2>
+                        <div class="sheet-class-line" id="sheetClassLine">Classe · Nível</div>
+                    </div>
+                    <div class="sheet-actions">
+                        <button class="btn btn-secondary" onclick="editCharacter()">✏️ Editar</button>
+                        <button class="btn btn-gold" onclick="exportCharacterJSON()">⬇ Exportar JSON</button>
+                        <button class="btn btn-danger" onclick="deleteCharacter()">🗑️ Excluir</button>
+                    </div>
+                </div>
+                <div class="sheet-grid">
+                    <div class="sheet-left">
+                        <div class="portrait-card">
+                            <div class="portrait" id="sheetPortrait">🧙</div>
+                            <div class="portrait-name" id="sheetPortraitName">Nome</div>
+                            <div class="portrait-race" id="sheetPortraitRace">Raça</div>
+                        </div>
+                        <div class="bars-card">
+                            <div class="bar-row"><span>PV</span><div class="bar"><div class="bar-fill hp" id="sheetHPFill"></div></div><span id="sheetHPText">0/0</span></div>
+                            <div class="bar-row"><span>Mana</span><div class="bar"><div class="bar-fill mana" id="sheetManaFill"></div></div><span id="sheetManaText">0/0</span></div>
+                            <div class="bar-row"><span>XP</span><div class="bar"><div class="bar-fill xp" id="sheetXPFill"></div></div><span id="sheetXPText">0 XP</span></div>
+                        </div>
+                        <div class="attr-card">
+                            <div class="panel-title">Atributos</div>
+                            <div class="sheet-attrs" id="sheetAttrs"></div>
+                        </div>
+                    </div>
+                    <div class="sheet-right">
+                        <div class="tabs">
+                            <button class="tab active" data-tab="combat">⚔️ Combate</button>
+                            <button class="tab" data-tab="skills">✨ Habilidades</button>
+                            <button class="tab" data-tab="equip">🎒 Equipamentos</button>
+                            <button class="tab" data-tab="info">📜 Informações</button>
+                        </div>
+                        <div class="tab-panel active" data-tabpanel="combat">
+                            <div class="panel-title">Combate</div>
+                            <div class="combat-actions">
+                                <button class="btn btn-danger" onclick="takeDamage()">💔 Receber Dano</button>
+                                <button class="btn btn-success" onclick="healCharacter()">💚 Curar</button>
+                                <button class="btn btn-gold" onclick="rollAttack()">⚔️ Rolar Ataque</button>
+                                <button class="btn btn-gold" onclick="rollDamage()">💥 Rolar Dano</button>
+                            </div>
+                            <div class="combat-log" id="combatLog"></div>
+                        </div>
+                        <div class="tab-panel" data-tabpanel="skills">
+                            <div class="panel-title">Habilidades</div>
+                            <div class="sheet-skills" id="sheetSkills"></div>
+                        </div>
+                        <div class="tab-panel" data-tabpanel="equip">
+                            <div class="panel-title">Equipamentos</div>
+                            <div class="sheet-equip" id="sheetEquip"></div>
+                        </div>
+                        <div class="tab-panel" data-tabpanel="info">
+                            <div class="panel-title">Informações</div>
+                            <div class="info-box" id="sheetInfo"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal de confirmação -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-card">
+            <div class="modal-icon">⚠️</div>
+            <h3 id="confirmTitle">Tem certeza?</h3>
+            <p id="confirmMsg"></p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeConfirm()">Cancelar</button>
+                <button class="btn btn-danger" id="confirmAction">Excluir</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de edição de atributos -->
+    <div id="editModal" class="modal">
+        <div class="modal-card">
+            <h3>Editar Valor</h3>
+            <input type="number" id="editValueInput" class="modal-input">
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeEditModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveEditValue()">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

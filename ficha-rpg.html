@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ficha RPG - Sirius</title>
+    <style>
+        :root {
+            --bg: #0d0208;
+            --panel: #2b1b0d;
+            --border: #c19662;
+            --text: #f4e9d4;
+            --accent: #8b6d47;
+            --gold: #d4af37;
+            --red: #c0392b;
+            --green: #27ae60;
+            --d20-hover: #5d4723;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: radial-gradient(circle at top, #1a0e19 0%, var(--bg) 100%);
+            min-height: 100vh;
+            color: var(--text);
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        .character-card {
+            background: var(--panel);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 25px;
+            max-width: 350px;
+            box-shadow: 0 0 30px rgba(193, 150, 98, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        .character-card::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 6px;
+            background: repeating-linear-gradient(90deg, var(--gold), var(--gold)10px, var(--border) 10px, var(--border) 20px);
+        }
+        h1 {
+            text-align: center;
+            color: var(--gold);
+            font-size: 1.8em;
+            margin-bottom: 5px;
+            text-shadow: 1px 1px 3px #000;
+            letter-spacing: 2px;
+        }
+        .subtitle { text-align: center; color: var(--accent); font-size: 0.9em; margin-bottom: 20px; }
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 10px;
+            background: rgba(13, 2, 8, 0.5);
+            border-radius: 6px;
+            border-left: 3px solid var(--accent);
+        }
+        .stat-name { color: var(--accent); font-weight: bold; font-size: 0.9em; }
+        .stat-value { color: var(--gold); font-weight: bold; font-size: 1.1em; }
+        .combat-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .combat-box {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+        .combat-label { color: var(--accent); font-size: 0.8em; }
+        .combat-value { color: var(--gold); font-size: 1.4em; font-weight: bold; }
+        .inventory-item {
+            padding: 5px 8px;
+            background: rgba(13,2,8,0.4);
+            border-radius: 4px;
+            margin: 3px 0;
+            font-size: 0.85em;
+        }
+        .dice-section { margin-top: 20px; padding-top: 15px; border-top: 1px dashed var(--border); }
+        .dice-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .btn {
+            background: var(--accent);
+            border: 2px solid var(--border);
+            color: var(--text);
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.95em;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        .btn:hover {
+            background: var(--gold);
+            color: var(--bg);
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.5);
+        }
+        .btn.d20 { background: linear-gradient(145deg, #3a2a15, #5d4723); border-color: #d4af37; }
+        .btn.d20:hover { background: linear-gradient(145deg, #5d4723, #8b6d47); color: var(--gold); }
+        .btn.d6 { background: linear-gradient(145deg, #1a4d1a, #27ae60); border-color: #3a9b3a; }
+        .btn.attack { background: linear-gradient(145deg, #4d1a1a, #c0392b); border-color: #d45d47; }
+        .btn.attack:hover { box-shadow: 0 0 15px rgba(192, 57, 41, 0.7); }
+        .btn.initiative { background: linear-gradient(145deg, #1a2a4d, #2980b9); border-color: #3a6db3; }
+        .btn.skill { background: linear-gradient(145deg, #3a1a4d, #8e44ad); border-color: #b359d4; }
+        .btn.heal { background: linear-gradient(145deg, #1a3d4d, #27ae60); border-color: #3ac270; }
+        .result-display {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: rgba(26, 8, 32, 0.95);
+            border: 3px solid var(--gold);
+            border-radius: 12px;
+            padding: 30px 40px;
+            text-align: center;
+            z-index: 100;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 0 50px rgba(212, 175, 55, 0.4);
+        }
+        .result-display.active { transform: translate(-50%, -50%) scale(1); }
+        .result-display .dice-icon { font-size: 3em; margin-bottom: 10px; }
+        .result-display .result-value { font-size: 3em; font-weight: bold; color: var(--gold); text-shadow: 2px 2px 8px #000; }
+        .result-display .result-desc { color: var(--accent); font-size: 1.1em; margin-top: 8px; }
+        .overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 99;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .overlay.active { opacity: 1; }
+        .hp-bar-container { margin: 10px 0; }
+        .hp-bar-label { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .hp-bar {
+            width: 100%; height: 16px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--red);
+        }
+        .hp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--green), #2ecc71);
+            transition: width 0.5s;
+            width: 100%;
+        }
+        .log-container {
+            background: rgba(13, 2, 8, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.85em;
+        }
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(100, 80, 50, 0.3);
+            color: var(--gold);
+        }
+        .log-entry .player { color: #5d8cff; }
+        .log-entry .critical { color: var(--gold); animation: pulse 1s; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    </style>
+</head>
+<body>
+    <div id="resultOverlay" class="overlay"></div>
+
+    <div id="resultDisplay" class="result-display">
+        <div class="dice-icon">🎲</div>
+        <div class="result-value" id="resultValue">---</div>
+        <div class="result-desc" id="resultDesc">Rolando dados...</div>
+    </div>
+
+    <div class="character-card">
+        <h1>🗡️ Sirius</h1>
+        <div class="subtitle">Human Fighter • Level 1 • Neutral Good</div>
+
+        <div style="text-align:center; margin: 15px 0;">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Ccircle cx='60' cy='55' r='20' fill='%238b6d47'/%3E%3Cpath d='M40,65 Q60,90 80,65 L70,70 Q60,65 50,70 Z' fill='%23c0392b'/%3E%3Crect x='35' y='70' width='50' height='25' rx='5' fill='%238b6d47'/%3E%3Cpath d='M30,50 Q45,35 60,50 Q75,35 90,50' stroke='%23c0392b' stroke-width='5' fill='none'/%3E%3C/svg%3E" alt="Sirius" style="border-radius: 50%; border: 2px solid gold;">
+        </div>
+
+        <div class="stat-grid">
+            <h3 style="color: var(--gold); margin-bottom: 10px;">⚔️ Atributos</h3>
+            <div class="stat-row"><span class="stat-name">Força</span><span class="stat-value">16 (+3)</span></div>
+            <div class="stat-row"><span class="stat-name">Destreza</span><span class="stat-value">14 (+2)</span></div>
+            <div class="stat-row"><span class="stat-name">Constituição</span><span class="stat-value">15 (+2)</span></div>
+            <div class="stat-row"><span class="stat-name">Inteligência</span><span class="stat-value">10 (+0)</span></div>
+            <div class="stat-row"><span class="stat-name">Sabedoria</span><span class="stat-value">12 (+1)</span></div>
+            <div class="stat-row"><span class="stat-name">Carisma</span><span class="stat-value">8 (-1)</span></div>
+        </div>
+
+        <h3 style="color: var(--gold); margin: 15px 0 10px;">🛡️ Combate</h3>
+        <div class="combat-stats">
+            <div class="combat-box"><div class="combat-label">PV</div><div class="combat-value" id="currentHP">16</div></div>
+            <div class="combat-box"><div class="combat-label">CA</div><div class="combat-value">16</div></div>
+            <div class="combat-box"><div class="combat-label">Iniciativa</div><div class="combat-value">+2</div></div>
+            <div class="combat-box"><div class="combat-label">Velocidade</div><div class="combat-value">30ft</div></div>
+        </div>
+
+        <div class="hp-bar-container">
+            <div class="hp-bar-label"><span>Pontos de Vida</span><span id="hpText">16 / 16</span></div>
+            <div class="hp-bar"><div class="hp-fill" id="hpFill"></div></div>
+        </div>
+
+        <h3 style="color: var(--gold); margin: 15px 0 10px;">🎒 Inventário</h3>
+        <div class="inventory-item">Espada Longa (+5, 1d8+3 cortante)</div>
+        <div class="inventory-item">Adaga Curta (+4, 1d4+2 perfurante)</div>
+        <div class="inventory-item">Armadura de Cotaas ({AC 16})</div>
+        <div class="inventory-item">Poção de Cura (4 usos)</div>
+        <div class="inventory-item">&lt;1000 GP&gt;</div>
+
+        <div class="dice-section">
+            <h3 style="color: var(--gold); margin-bottom: 10px;">🎲 Dados de Ação</h3>
+            <div class="dice-grid">
+                <button class="btn d20" onclick="rollDice('d20', 1)">d20</button>
+                <button class="btn d6" onclick="rollDice('d6', 1)">d6</button>
+                <button class="btn attack" onclick="attackRoll()">Ataque</button>
+                <button class="btn initiative" onclick="initiativeRoll()">Iniciativa</button>
+                <button class="btn skill" onclick="skillCheck('Atletismo', 3)">Atletismo</button>
+                <button class="btn skill" onclick="skillCheck('Percepção', 1)">Percepção</button>
+                <button class="btn skill" onclick="skillCheck('Intimidar', -1)">Intimidar</button>
+                <button class="btn skill" onclick="skillCheck('Sobrevivência', 1)">Sobrevivência</button>
+                <button class="btn heal" onclick="healPotion()">Poção de Cura</button>
+            </div>
+        </div>
+    </div>
+
+    <div style="max-width: 350px;">
+        <h3 style="color: var(--gold); margin-bottom: 10px;">📜 Histórico de Ações</h3>
+        <div id="logContainer" class="log-container"></div>
+    </div>
+
+    <script>
+        let currentHP = 16;
+        const maxHP = 16;
+        const potions = { value: 4 };
+
+        function rollDie(sides) {
+            return Math.floor(Math.random() * sides) + 1;
+        }
+
+        function showResult(value, desc, isCrit = false, dieType = 'd20') {
+            const overlay = document.getElementById('resultOverlay');
+            const display = document.getElementById('resultDisplay');
+            const valueEl = document.getElementById('resultValue');
+            const descEl = document.getElementById('resultDesc');
+
+            valueEl.textContent = value;
+            descEl.textContent = desc;
+            valueEl.style.color = isCrit ? '#d4af37' : '#f4e9d4';
+
+            display.classList.add('active');
+            overlay.classList.add('active');
+
+            setTimeout(() => {
+                display.classList.remove('active');
+                overlay.classList.remove('active');
+            }, 1500);
+        }
+
+        function rollDice(type, num) {
+            const dieMap = { d4: 4, d6: 6, d8: 8, d10: 10, d12: 12, d20: 20, d100: 100 };
+            const sides = dieMap[type];
+            let total = 0;
+            let results = [];
+            for (let i = 0; i < num; i++) {
+                const r = rollDie(sides);
+                results.push(r);
+                total += r;
+            }
+            const desc = num > 1 ? `${results.join(' + ')} = ${total}` : `Rolagem de ${type}`;
+            logAction(`Rolou ${num}${type === 'd20' ? '' : type}: ${total}`);
+            showResult(total, desc, total === sides && sides === 20, type);
+        }
+
+        function attackRoll() {
+            const d20 = rollDie(20);
+            const bonus = 5;
+            const total = d20 + bonus;
+            let desc = `Ataque: ${d20} + ${bonus} = ${total}`;
+            let isCrit = d20 === 20;
+            let isFumble = d20 === 1;
+
+            if (isCrit) {
+                const dmg = rollDie(8) + rollDie(8) + 3;
+                desc = `CRÍTICO! Dano: ${dmg}`;
+                logAction(`CRÍTICO! Ataque ${total} - Dano ${dmg}`);
+            } else if (isFumble) {
+                desc = `FALHA CRÍTICA!`;
+                logAction('FALHA CRÍTICA no ataque!');
+            } else {
+                const dmg = rollDie(8) + 3;
+                desc = `${d20} + ${bonus} = ${total} (Dano: ${dmg})`;
+                logAction(`Ataque: ${total} - Dano ${dmg}`);
+            }
+            showResult(isCrit ? '20' : total.toString(), desc, isCrit);
+        }
+
+        function initiativeRoll() {
+            const d20 = rollDie(20);
+            const total = d20 + 2;
+            logAction(`Iniciativa: ${d20} + 2 = ${total}`);
+            showResult(total.toString(), `Iniciativa: ${d20} + 2 = ${total}`, d20 === 20);
+        }
+
+        function skillCheck(skillName, modifier) {
+            const d20 = rollDie(20);
+            const total = d20 + modifier;
+            let isCrit = d20 === 20;
+            let isFumble = d20 === 1;
+            let desc;
+
+            if (isCrit) {
+                desc = `CRÍTICO em ${skillName}: ${d20} + ${modifier} = ${total}`;
+                logAction(`CRÍTICO! ${skillName}: ${total}`);
+            } else if (isFumble) {
+                desc = `FALHA CRÍTICA em ${skillName}`;
+                logAction(`FALHA CRÍTICA! ${skillName}`);
+            } else {
+                desc = `${skillName}: ${d20} + ${modifier} = ${total}`;
+                logAction(`${skillName}: ${total}`);
+            }
+            showResult(total.toString(), desc, isCrit);
+        }
+
+        function healPotion() {
+            if (potions.value <= 0) {
+                logAction('Sem poções de cura!');
+                showResult('❌', 'Sem poções de cura!');
+                return;
+            }
+            potions.value--;
+            const healAmount = rollDie(4) + 2;
+            currentHP = Math.min(maxHP, currentHP + healAmount);
+            updateHPBar();
+            logAction(`Poção de Cura: +${healAmount} PV (Restam: ${potions.value})`);
+            showResult(`+${healAmount}`, `Poção de Cura! +${healAmount} PV (${currentHP}/${maxHP})`, false);
+        }
+
+        function updateHPBar() {
+            const pct = (currentHP / maxHP) * 100;
+            document.getElementById('hpFill').style.width = pct + '%';
+            document.getElementById('currentHP').textContent = currentHP;
+            document.getElementById('hpText').textContent = `${currentHP} / ${maxHP}`;
+        }
+
+        function logAction(message) {
+            const log = document.getElementById('logContainer');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const time = new Date().toLocaleTimeString();
+            entry.innerHTML = `<span class="player">[${time}]</span> ${message}`;
+            log.prepend(entry);
+        }
+
+        document.getElementById('resultOverlay').onclick = () => {
+            document.getElementById('resultOverlay').classList.remove('active');
+            document.getElementById('resultDisplay').classList.remove('active');
+        };
+    </script>
+</body>
+</html>

@@ -35,6 +35,9 @@
                     <span class="nav-icon">📜</span> Minhas Fichas
                     <span id="charCountBadge" class="badge">0</span>
                 </button>
+                <button class="nav-item" data-view="creatures">
+                    <span class="nav-icon">🐉</span> Criaturas
+                </button>
                 <button class="nav-item" data-view="dice">
                     <span class="nav-icon">🎲</span> Dados
                 </button>
@@ -309,6 +312,35 @@
                 </div>
             </section>
 
+            <!-- VIEW: CREATURES -->
+            <section id="view-creatures" class="view">
+                <div class="create-header">
+                    <h2>🐉 Criaturas &amp; Encontros</h2>
+                    <p>Monte o combate: escolha as criaturas, defina a quantidade e selecione quais personagens participam do encontro.</p>
+                </div>
+
+                <div class="combat-panel">
+                    <div class="combat-panel-header">
+                        <div class="panel-title">⚔️ Combate Atual</div>
+                        <button class="btn btn-danger btn-sm" onclick="resetCombat()">🗑️ Limpar Combate</button>
+                    </div>
+                    <div id="combatArea" class="combat-area"></div>
+                    <div class="combat-history">
+                        <div class="combat-history-title">📜 Histórico do Combate</div>
+                        <div id="combatHistory" class="combat-history-list"></div>
+                    </div>
+                </div>
+
+                <div class="player-select-panel">
+                    <div class="panel-title">🧙 Personagens do Encontro</div>
+                    <p class="panel-sub" style="margin-bottom:14px">Toque em um personagem para incluí-lo no combate. A vida exibida acompanha a ficha do personagem.</p>
+                    <div id="playerPicker" class="player-picker"></div>
+                </div>
+
+                <div class="panel-title" style="margin-bottom:14px">🐾 Criaturas Disponíveis</div>
+                <div id="creatureList" class="creature-list"></div>
+            </section>
+
             <!-- VIEW: CHARACTER SHEET -->
             <section id="view-sheet" class="view">
                 <div class="sheet-header">
@@ -395,6 +427,31 @@
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="closeEditModal()">Cancelar</button>
                 <button class="btn btn-primary" onclick="saveEditValue()">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de detalhes da criatura -->
+    <div id="creatureModal" class="modal">
+        <div class="modal-card creature-modal">
+            <div id="creatureDetail" class="creature-detail"></div>
+        </div>
+    </div>
+
+    <!-- Modal de ações do combatente -->
+    <div id="actionModal" class="modal">
+        <div class="modal-card action-modal">
+            <div id="actionPanel"></div>
+        </div>
+    </div>
+
+    <!-- Modal de seleção de alvo -->
+    <div id="targetModal" class="modal">
+        <div class="modal-card target-modal">
+            <h3 id="targetTitle">Escolha um alvo</h3>
+            <div id="targetList" class="target-list"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeTargetModal()">Cancelar</button>
             </div>
         </div>
     </div>

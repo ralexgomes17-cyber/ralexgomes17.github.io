@@ -222,6 +222,7 @@ function goTo(view) {
     document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === view));
     if (view === 'library') { renderLibrary(); updateCharCount(); }
     if (view === 'dice') { renderDiceGrid(); renderDiceHistory(); }
+    if (view === 'creatures') { renderCreatureList(); renderCombat(); renderPlayerPicker(); }
     if (view === 'home') {}
     window.scrollTo({ top: 0, behavior: 'smooth' });
     if (view === 'create' && !editingChar) { initCreation(); }
@@ -645,6 +646,8 @@ function askDelete(id) {
     showConfirm('Excluir personagem?', `"${c.name}" será excluído permanentemente. Esta ação não pode ser desfeita.`, () => {
         characters = characters.filter(x => x.id !== id);
         saveCharacters();
+        combat.players = combat.players.filter(p => characters.some(c => c.id === p));
+        saveCombat();
         renderLibrary();
         alertToast('Ficha excluída.');
         if (currentCharId === id) currentCharId = null;
@@ -1017,6 +1020,9 @@ document.addEventListener('DOMContentLoaded', () => {
     $('confirmAction').onclick = () => { if (confirmCallback) confirmCallback(); closeConfirm(); };
     $('confirmModal').addEventListener('click', e => { if (e.target === $('confirmModal')) closeConfirm(); });
     $('editModal').addEventListener('click', e => { if (e.target === $('editModal')) closeEditModal(); });
+    $('creatureModal').addEventListener('click', e => { if (e.target === $('creatureModal')) closeCreatureModal(); });
+    $('actionModal').addEventListener('click', e => { if (e.target === $('actionModal')) closeActionModal(); });
+    $('targetModal').addEventListener('click', e => { if (e.target === $('targetModal')) closeTargetModal(); });
     $('editValueInput').addEventListener('keydown', e => { if (e.key === 'Enter') saveEditValue(); });
 });
 
@@ -1071,8 +1077,10 @@ function toggleTheme() {
 function resetAllData() {
     showConfirm('Limpar todos os dados?', 'Todas as fichas e o histórico de dados serão apagados permanentemente.', () => {
         characters = []; diceHistory = [];
+        combat = { creatures: [], players: [] };
         localStorage.removeItem(STORAGE_KEY);
         localStorage.removeItem('aetheria_dice_history');
+        localStorage.removeItem(COMBAT_KEY);
         saveCharacters();
         currentCharId = null;
         goTo('home');
@@ -1123,7 +1131,600 @@ function seedExampleData() {
 }
 
 /* ---------------------------------------------------------
-   14. INICIALIZAÇÃO
+   14. CRIATURAS E COMBATE
+   --------------------------------------------------------- */
+
+const CREATURES_BASE = [
+    {
+        id: 'goblin', name: 'Goblin', icon: '👺', level: 1, hpMax: 14, defense: 13, attack: 3, damage: '1d6',
+        description: 'Pequena criatura cruel e covarde. Habita cavernas e florestas escuras, atacando em bandos com facas e arcos curtos.',
+        skills: [
+            { name: 'Arremesso de Faca', icon: '🔪', cat: 'Ataque', dmg: '1d6', desc: 'Ataque à distância. Causa 1d6 de dano.' },
+            { name: 'Esquiva Veloz', icon: '💨', cat: 'Defesa', dmg: null, desc: 'Esquiva-se com facilidade de ataques diretos.' }
+        ],
+        weaknesses: ['Luz'], resistances: ['Nenhuma']
+    },
+    {
+        id: 'orc', name: 'Orc', icon: '👹', level: 3, hpMax: 32, defense: 14, attack: 6, damage: '2d8',
+        description: 'Guerreiro bruto e musculoso. Lidera bandos, entra em fúria quando ferido e golpeia sem piedade.',
+        skills: [
+            { name: 'Investida Brutal', icon: '💥', cat: 'Ataque', dmg: '2d4', desc: 'Avança sobre o alvo. Causa 2d4 de dano extra.' },
+            { name: 'Fúria de Batalha', icon: '😡', cat: 'Defesa', dmg: null, desc: 'Em fúria, reduz pela metade o dano de corte.' }
+        ],
+        weaknesses: ['Nenhuma'], resistances: ['Corte']
+    },
+    {
+        id: 'esqueleto', name: 'Esqueleto', icon: '💀', level: 2, hpMax: 20, defense: 12, attack: 4, damage: '1d8',
+        description: 'Restos animados por necromancia. Marcham lentamente contra os vivos, implacáveis e silenciosos.',
+        skills: [
+            { name: 'Golpe de Espada', icon: '🗡️', cat: 'Ataque', dmg: '1d8', desc: 'Ataque com a espada enferrujada. Causa 1d8 de dano.' }
+        ],
+        weaknesses: ['Contundente', 'Sagrado'], resistances: ['Corte', 'Veneno']
+    },
+    {
+        id: 'lobo', name: 'Lobo', icon: '🐺', level: 2, hpMax: 22, defense: 13, attack: 5, damage: '1d10',
+        description: 'Predador das florestas, caça em alcateias. Rápido, furtivo e letal quando age em bando.',
+        skills: [
+            { name: 'Mordida', icon: '🦷', cat: 'Ataque', dmg: '1d10', desc: 'Mordida forte. Causa 1d10 de dano.' },
+            { name: 'Uivo', icon: '🌕', cat: 'Suporte', dmg: null, desc: 'Convoca lobos das redondezas para o combate.' }
+        ],
+        weaknesses: ['Fogo'], resistances: ['Nenhuma']
+    },
+    {
+        id: 'dragao', name: 'Dragão Vermelho', icon: '🐲', level: 10, hpMax: 120, defense: 18, attack: 12, damage: '3d10',
+        description: 'Aterrorizante senhor dos céus. Cospe fogo e voa sobre o campo de batalha, devastando tudo com suas garras colossais.',
+        skills: [
+            { name: 'Sopro de Fogo', icon: '🔥', cat: 'Ataque', dmg: '6d8', desc: 'Exala uma coluna de chamas. Causa 6d8 de dano em área.' },
+            { name: 'Garra Colossal', icon: '🐾', cat: 'Ataque', dmg: '2d10+4', desc: 'Golpe duplo de garras. Causa 2d10+4 de dano.' },
+            { name: 'Voo', icon: '🪽', cat: 'Defesa', dmg: null, desc: 'Alça voo e percorre longas distâncias sem ser atingido.' }
+        ],
+        weaknesses: ['Nenhuma'], resistances: ['Fogo', 'Frio', 'Eletricidade']
+    }
+];
+
+const COMBAT_KEY = 'aetheria_combat_v1';
+let combat = loadCombat();
+let modalQtyValue = 1;
+
+function loadCombat() {
+    try {
+        const raw = localStorage.getItem(COMBAT_KEY);
+        const saved = raw ? JSON.parse(raw) : {};
+        return { creatures: saved.creatures || [], players: saved.players || [], history: saved.history || [] };
+    } catch { return { creatures: [], players: [], history: [] }; }
+}
+function saveCombat() {
+    try { localStorage.setItem(COMBAT_KEY, JSON.stringify(combat)); } catch {}
+}
+function creatureById(id) { return CREATURES_BASE.find(x => x.id === id); }
+
+/* Lista de criaturas */
+function renderCreatureList() {
+    const grid = $('creatureList');
+    if (!grid) return;
+    grid.innerHTML = CREATURES_BASE.map(c => `
+        <div class="creature-card">
+            <div class="creature-card-top">
+                <div class="creature-avatar">${c.icon}</div>
+                <div>
+                    <div class="creature-name">${esc(c.name)}</div>
+                    <div class="creature-level">⭐ Nível ${c.level}</div>
+                </div>
+            </div>
+            <div class="creature-card-body">
+                <div class="char-stat-line"><span>❤️ Vida</span><b>${c.hpMax}</b></div>
+                <div class="char-stat-line"><span>🛡️ Defesa</span><b>${c.defense}</b></div>
+                <div class="char-stat-line"><span>⚔️ Ataque</span><b>+${c.attack} · ${esc(c.damage)}</b></div>
+                <div class="creature-desc">${esc(c.description)}</div>
+            </div>
+            <div class="creature-card-actions">
+                <button class="btn btn-gold btn-sm" onclick="openCreatureDetails('${c.id}')">👁 Ver detalhes</button>
+                <button class="btn btn-secondary btn-sm" onclick="addToCombat('${c.id}', 1)">⚔️ Adicionar</button>
+            </div>
+        </div>`).join('');
+}
+
+/* Detalhes */
+function openCreatureDetails(id) {
+    const c = creatureById(id);
+    if (!c) return;
+    modalQtyValue = 1;
+    $('creatureDetail').innerHTML = `
+        <div class="creature-detail-head">
+            <div class="creature-detail-icon">${c.icon}</div>
+            <div>
+                <div class="creature-name">${esc(c.name)}</div>
+                <div class="creature-level">⭐ Nível ${c.level}</div>
+            </div>
+        </div>
+        <p class="creature-desc-full">${esc(c.description)}</p>
+        <div class="creature-stats">
+            <div class="creature-stat"><span>❤️ Vida</span><b>${c.hpMax}</b></div>
+            <div class="creature-stat"><span>🛡️ Defesa</span><b>${c.defense}</b></div>
+            <div class="creature-stat"><span>⚔️ Ataque</span><b>+${c.attack}</b></div>
+            <div class="creature-stat"><span>💥 Dano</span><b>${esc(c.damage)}</b></div>
+        </div>
+        <div class="creature-section-title">✨ Habilidades</div>
+        <div class="creature-skills">
+            ${c.skills.map(s => `<div class="creature-skill">
+                <span>${s.icon}</span>
+                <div>
+                    <div class="creature-skill-name">${esc(s.name)}</div>
+                    <div class="creature-skill-desc">${esc(s.desc)}</div>
+                </div>
+            </div>`).join('')}
+        </div>
+        <div class="creature-vuln">
+            <div class="creature-res-row"><span>⚠️ Fraquezas:</span> <i>${esc(c.weaknesses.join(', '))}</i></div>
+            <div class="creature-res-row"><span>🛡️ Resistências:</span> <i>${esc(c.resistances.join(', '))}</i></div>
+        </div>
+        <div class="creature-qty-row">
+            <span class="creature-qty-label">Quantidade:</span>
+            <button class="attr-btn" onclick="modalQty(-1)">−</button>
+            <span id="modalQty" class="attr-num">1</span>
+            <button class="attr-btn" onclick="modalQty(1)">+</button>
+        </div>
+        <div class="modal-actions" style="margin-top:16px">
+            <button class="btn btn-secondary" onclick="closeCreatureModal()">Fechar</button>
+            <button class="btn btn-primary" id="creatureAddBtn" onclick="addToCombat('${c.id}')">⚔️ Adicionar ao combate</button>
+        </div>`;
+    $('creatureModal').classList.add('show');
+}
+function modalQty(d) {
+    modalQtyValue = Math.max(1, Math.min(10, modalQtyValue + d));
+    const el = $('modalQty'); if (el) el.textContent = modalQtyValue;
+    const btn = $('creatureAddBtn'); if (btn) btn.textContent = `⚔️ Adicionar ao combate (×${modalQtyValue})`;
+}
+function closeCreatureModal() { $('creatureModal').classList.remove('show'); }
+
+/* Adicionar criaturas ao combate */
+function addToCombat(id, qty) {
+    const c = creatureById(id);
+    if (!c) return;
+    const n = qty || modalQtyValue || 1;
+    for (let i = 0; i < n; i++) combat.creatures.push({ uid: uid(), creatureId: id, hpCur: c.hpMax });
+    addCombatLog(`${n > 1 ? n + '× ' : ''}${c.name} entrou no combate (${c.hpMax} HP).`, 'info');
+    saveCombat();
+    closeCreatureModal();
+    renderCombat();
+    renderPlayerPicker();
+    alertToast(`⚔️ ${n > 1 ? n + '× ' : ''}${c.name} adicionado(s) ao combate!`);
+}
+
+/* Jogadores do encontro */
+function renderPlayerPicker() {
+    const container = $('playerPicker');
+    if (!container) return;
+    if (!characters.length) {
+        container.innerHTML = '<div class="info-box">Nenhum personagem criado ainda. Crie personagens na aba "Criar Personagem".</div>';
+        return;
+    }
+    container.innerHTML = characters.map(c => {
+        const active = combat.players.includes(c.id);
+        return `<div class="player-pick ${active ? 'active' : ''}" onclick="togglePlayerInCombat('${c.id}')">
+            <span class="player-pick-icon">${esc(c.portrait || '🧙')}</span>
+            <div class="player-pick-info">
+                <div class="player-pick-name">${esc(c.name)}</div>
+                <div class="player-pick-sub">${esc(c.className || '')} · Nível ${c.level} · ❤️ ${c.hpCur}/${c.hpMax}</div>
+            </div>
+            <span class="player-pick-check">${active ? '✔' : ''}</span>
+        </div>`;
+    }).join('');
+}
+function togglePlayerInCombat(charId) {
+    const i = combat.players.indexOf(charId);
+    if (i >= 0) combat.players.splice(i, 1);
+    else combat.players.push(charId);
+    saveCombat();
+    renderCombat();
+    renderPlayerPicker();
+}
+
+/* Combate atual — modelo unificado de combatentes */
+function charDefense(c) {
+    let armor = 0, bonus = 0;
+    (c.items || []).forEach(it => {
+        const def = S.items[it.id]?.def || 0;
+        const cat = S.items[it.id]?.cat;
+        if (cat === 'armaduras') armor = Math.max(armor, def);
+        else if (cat === 'escudos' || cat === 'magicos') bonus += def;
+    });
+    return (armor || 10) + bonus;
+}
+function weaponDamageOf(c) {
+    const w = (c.items || []).find(i => S.items[i.id]?.dmg);
+    return w ? S.items[w.id].dmg : '1d4';
+}
+function getCombatants() {
+    const list = [];
+    combat.players.forEach(id => {
+        const c = findChar(id);
+        if (!c) return;
+        list.push({
+            kind: 'char', ref: id, name: c.name, icon: c.portrait || '🧙',
+            sub: `${c.className || 'Personagem'} · Nível ${c.level}`,
+            hpCur: c.hpCur, hpMax: c.hpMax,
+            defense: charDefense(c), attack: modFor(c.attrs.forca) + 2,
+            manaCur: c.manaCur, manaMax: c.manaMax, hasMana: c.manaMax > 0,
+            side: 'players', alive: c.hpCur > 0
+        });
+    });
+    combat.creatures.forEach(e => {
+        const c = creatureById(e.creatureId);
+        if (!c) return;
+        list.push({
+            kind: 'creature', ref: e.uid, creatureId: e.creatureId, name: c.name, icon: c.icon,
+            sub: `Criatura · Nível ${c.level}`,
+            hpCur: e.hpCur, hpMax: c.hpMax,
+            defense: c.defense, attack: c.attack,
+            manaCur: 0, manaMax: 0, hasMana: false,
+            side: 'enemies', alive: e.hpCur > 0
+        });
+    });
+    return list;
+}
+function cbtById(ref) { return getCombatants().find(x => x.ref === ref) || null; }
+function actionRule(a) {
+    if (a.dmg && a.dmg.startsWith('+')) return 'heal';
+    if (a.dmg) return 'damage';
+    return 'utility';
+}
+function combatantActions(cbt) {
+    const actions = [];
+    if (cbt.kind === 'char') {
+        const c = findChar(cbt.ref);
+        if (!c) return actions;
+        actions.push({ id: 'basic__' + cbt.ref, name: 'Ataque Básico', icon: '⚔️', cat: 'Ataque', dmg: weaponDamageOf(c), cost: 0, desc: 'Ataque com a arma equipada.' });
+        (c.skills || []).forEach(sid => {
+            const sk = S.skills[sid];
+            if (!sk) return;
+            actions.push({
+                id: 'skill__' + sid, skillId: sid, name: sk.name, icon: sk.icon || '✨',
+                cat: sk.cat || 'Ataque', dmg: sk.dmg || null, cost: sk.cost || 0,
+                cd: sk.cd || 0, desc: sk.desc || ''
+            });
+        });
+    } else {
+        const e = combat.creatures.find(x => x.uid === cbt.ref);
+        const c = e ? creatureById(e.creatureId) : null;
+        if (!c) return actions;
+        actions.push({ id: 'basic__' + cbt.ref, name: 'Ataque Básico', icon: '⚔️', cat: 'Ataque', dmg: c.damage, cost: 0, desc: 'Ataque natural da criatura.' });
+        (c.skills || []).forEach((sk, i) => {
+            actions.push({
+                id: 'cskill__' + c.id + '__' + i, name: sk.name, icon: sk.icon || '✨',
+                cat: sk.cat || 'Ataque', dmg: sk.dmg || null, cost: sk.cost || 0, desc: sk.desc || ''
+            });
+        });
+    }
+    return actions;
+}
+function validTargets(actor, action) {
+    const rule = actionRule(action);
+    const all = getCombatants();
+    if (rule === 'heal') return all.filter(t => t.side === actor.side && t.alive && t.hpCur < t.hpMax);
+    if (rule === 'damage') return all.filter(t => t.side !== actor.side && t.alive);
+    return all.filter(t => t.ref === actor.ref);
+}
+function renderCombat() {
+    const area = $('combatArea');
+    if (!area) return;
+    const list = getCombatants();
+    if (!list.length) {
+        area.innerHTML = `<div class="empty-state" style="margin:0">
+            <div class="empty-icon">⚔️</div>
+            <h3>Nenhum combatente ainda</h3>
+            <p>Adicione criaturas abaixo e selecione os personagens do encontro. Clique em um combatente para abrir suas ações.</p>
+        </div>`;
+        renderCombatHistory();
+        return;
+    }
+    area.innerHTML = `<div class="combat-grid">${list.map(combatantTile).join('')}</div>`;
+    renderCombatHistory();
+}
+function combatantTile(x) {
+    const pct = Math.max(0, Math.min(100, (x.hpCur / x.hpMax) * 100));
+    const dead = !x.alive;
+    const count = x.kind === 'creature' ? combat.creatures.filter(e => e.creatureId === x.creatureId).length : 0;
+    return `<div class="combat-tile ${dead ? 'defeated' : ''} ${x.kind === 'char' ? 'combat-player-tile' : ''}" onclick="openActionPanel('${x.ref}')" title="${dead ? 'Derrotado — clique para ver opções' : 'Clique para abrir as ações'}">
+        <div class="combat-tile-head">
+            <span class="combat-creature-icon">${x.icon}</span>
+            <div class="combat-creature-info">
+                <span class="combat-creature-name">${esc(x.name)}${count > 1 ? ` <span class="combat-count">×${count}</span>` : ''}${dead ? ' <span class="combat-badge dead-badge">☠ Derrotado</span>' : ''}</span>
+                <span class="combat-creature-sub">${esc(x.sub)} · ${x.kind === 'char' ? 'Personagem' : 'Criatura'}</span>
+            </div>
+        </div>
+        <div class="combat-hp-row">
+            <span>❤️</span>
+            <div class="bar"><div class="bar-fill hp" style="width:${pct}%"></div></div>
+            <b class="${dead ? 'combat-dead' : ''}">${x.hpCur}/${x.hpMax}</b>
+        </div>
+        <div class="combat-stats-line">
+            <span>🛡️ ${x.defense}</span>
+            <span>⚔️ +${x.attack}</span>
+            ${x.hasMana ? `<span>🔮 ${x.manaCur}/${x.manaMax}</span>` : ''}
+        </div>
+        <div class="combat-tile-actions" onclick="event.stopPropagation()">
+            <button class="btn btn-primary btn-xs" onclick="openActionPanel('${x.ref}')">⚔️ Ações</button>
+            <button class="btn btn-danger btn-xs" onclick="quickDamage('${x.ref}')" title="Aplicar dano manualmente">💔</button>
+            <button class="btn btn-success btn-xs" onclick="quickHeal('${x.ref}')" title="Curar manualmente">💚</button>
+            <button class="btn btn-secondary btn-xs" onclick="quickRestore('${x.ref}')" title="Restaurar / reviver">♻</button>
+            <button class="btn btn-danger btn-xs" onclick="removeCombatant('${x.ref}')" title="Remover do combate">✕</button>
+        </div>
+    </div>`;
+}
+function addCombatLog(text, type = 'info') {
+    combat.history = combat.history || [];
+    combat.history.unshift({ time: Date.now(), text, type });
+    if (combat.history.length > 200) combat.history.length = 200;
+}
+function renderCombatHistory() {
+    const box = $('combatHistory');
+    if (!box) return;
+    if (!combat.history || !combat.history.length) {
+        box.innerHTML = '<div class="info-box">Nenhuma ação registrada ainda.</div>';
+        return;
+    }
+    box.innerHTML = combat.history.map(h => {
+        const t = new Date(h.time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        return `<div class="combat-log-entry ${h.type}"><span class="combat-log-time">${t}</span>${esc(h.text)}</div>`;
+    }).join('');
+}
+
+/* Controle de HP (manual) */
+function setCombatantHp(ref, kind, value) {
+    if (kind === 'char') {
+        const c = findChar(ref);
+        if (!c) return;
+        c.hpCur = value; c.updatedAt = Date.now();
+    } else {
+        const e = combat.creatures.find(x => x.uid === ref);
+        if (!e) return;
+        e.hpCur = value;
+    }
+}
+function quickDamage(ref) {
+    const x = cbtById(ref);
+    if (!x) return;
+    const dmg = promptDamage(`Quanto de dano ${x.name} recebeu?`);
+    if (dmg == null) return;
+    const before = x.hpCur;
+    const after = Math.max(0, before - dmg);
+    setCombatantHp(ref, x.kind, after);
+    addCombatLog(`${x.name} sofreu ${dmg} de dano. ${x.name}: ${before}/${x.hpMax} → ${after}/${x.hpMax} HP.`, 'damage');
+    if (after <= 0 && before > 0) addCombatLog(`💀 ${x.name} foi derrotado.`, 'damage');
+    saveCombat(); saveCharacters();
+    floatFeedback(after <= 0 ? '💀' : '💔', '-' + dmg);
+    renderCombat(); renderPlayerPicker();
+    alertToast(`${x.name}: ${after}/${x.hpMax} HP${after <= 0 ? ' — derrotado!' : ''}`);
+}
+function quickHeal(ref) {
+    const x = cbtById(ref);
+    if (!x) return;
+    const amt = promptDamage(`Quanto curar ${x.name}?`);
+    if (amt == null) return;
+    const before = x.hpCur;
+    const after = Math.min(x.hpMax, before + amt);
+    const real = after - before;
+    setCombatantHp(ref, x.kind, after);
+    addCombatLog(`${x.name} recuperou ${real} de vida. ${x.name}: ${before}/${x.hpMax} → ${after}/${x.hpMax} HP.`, 'heal');
+    saveCombat(); saveCharacters();
+    floatFeedback('💚', '+' + real);
+    renderCombat(); renderPlayerPicker();
+    alertToast(`${x.name}: ${after}/${x.hpMax} HP`);
+}
+function quickRestore(ref) {
+    const x = cbtById(ref);
+    if (!x) return;
+    const wasDead = !x.alive;
+    setCombatantHp(ref, x.kind, x.hpMax);
+    addCombatLog(`${wasDead ? '✨ ' + x.name + ' foi revivido' : '♻ ' + x.name + ' foi restaurado'} para ${x.hpMax}/${x.hpMax} HP.`, 'heal');
+    saveCombat(); saveCharacters();
+    renderCombat(); renderPlayerPicker();
+    alertToast(`♻ ${x.name} restaurado para ${x.hpMax} HP.`);
+}
+function removeCombatant(ref) {
+    const x = cbtById(ref);
+    if (!x) return;
+    if (x.kind === 'char') {
+        const i = combat.players.indexOf(ref);
+        if (i >= 0) combat.players.splice(i, 1);
+    } else {
+        combat.creatures = combat.creatures.filter(e => e.uid !== ref);
+    }
+    addCombatLog(`${x.name} saiu do combate.`, 'info');
+    saveCombat();
+    renderCombat(); renderPlayerPicker();
+    alertToast(`${x.name} removido do combate.`);
+}
+function removeFromCombat(uid) { removeCombatant(uid); }
+function removePlayerFromCombat(charId) { removeCombatant(charId); }
+
+/* Painel de ações do combatente */
+let combatActorRef = null;
+let pendingAction = null;
+
+function openActionPanel(ref) {
+    const actor = cbtById(ref);
+    if (!actor) return;
+    combatActorRef = ref;
+    const actions = combatantActions(actor);
+    $('actionPanel').innerHTML = `
+        <div class="action-head">
+            <div class="action-icon">${actor.icon}</div>
+            <div>
+                <div class="action-name">${esc(actor.name)}</div>
+                <div class="action-sub">${esc(actor.sub)} · ${actor.kind === 'char' ? 'Personagem' : 'Criatura'}</div>
+                <div class="action-stats">
+                    <span>❤️ ${actor.hpCur}/${actor.hpMax}</span>
+                    <span>🛡️ Def ${actor.defense}</span>
+                    <span>⚔️ Ataque +${actor.attack}</span>
+                    ${actor.hasMana ? `<span>🔮 ${actor.manaCur}/${actor.manaMax}</span>` : ''}
+                    <span>${actor.alive ? '🟢 Normal' : '☠ Derrotado'}</span>
+                </div>
+            </div>
+        </div>
+        <div class="action-list-title">Ações</div>
+        <div class="action-list">
+            ${actions.map(a => {
+                const rule = actionRule(a);
+                const canUse = (!a.cost) || (actor.hasMana && actor.manaCur >= a.cost);
+                const btnLabel = rule === 'damage' ? '⚔️ Atacar' : rule === 'heal' ? '💚 Curar' : '✨ Usar';
+                return `<div class="action-row">
+                    <div class="action-main">
+                        <span class="action-icon">${a.icon}</span>
+                        <div class="action-info">
+                            <div class="action-name2">${esc(a.name)}</div>
+                            <div class="action-meta">
+                                ${rule === 'damage' ? `<span class="skill-tag damage">💥 ${esc(a.dmg)}</span>` : ''}
+                                ${rule === 'heal' ? `<span class="skill-tag heal">💚 ${esc(a.dmg)}</span>` : ''}
+                                ${a.cost ? `<span class="skill-tag cost">🔮 ${a.cost} Mana</span>` : ''}
+                                ${rule === 'utility' ? '<span class="skill-tag cooldown">✨ Efeito</span>' : ''}
+                            </div>
+                            <div class="action-desc">${esc(a.desc)}</div>
+                        </div>
+                        <button class="btn btn-primary btn-xs" ${canUse ? '' : 'disabled'} title="${canUse ? '' : 'Recurso insuficiente'}" onclick="useAction('${a.id}')">${btnLabel}</button>
+                    </div>
+                </div>`;
+            }).join('')}
+        </div>
+        <div class="modal-actions" style="margin-top:14px">
+            <button class="btn btn-secondary" onclick="closeActionModal()">Fechar</button>
+        </div>`;
+    $('actionModal').classList.add('show');
+}
+function closeActionModal() { $('actionModal').classList.remove('show'); combatActorRef = null; pendingAction = null; }
+
+function useAction(actionId) {
+    const actor = cbtById(combatActorRef);
+    if (!actor) return;
+    if (!actor.alive) { alertToast(`${actor.name} está derrotado e não pode agir.`); return; }
+    const action = combatantActions(actor).find(a => a.id === actionId);
+    if (!action) return;
+    if (action.cost) {
+        if (!actor.hasMana) { alertToast(`Requer ${action.cost} de Mana (sem recurso disponível).`); return; }
+        if (actor.manaCur < action.cost) { alertToast(`Mana insuficiente (precisa ${action.cost}).`); return; }
+    }
+    const rule = actionRule(action);
+    if (rule === 'utility') { executeCombatAction(actor, actor, action); return; }
+    const targets = validTargets(actor, action);
+    if (!targets.length) {
+        alertToast(rule === 'heal' ? 'Nenhum aliado ferido para curar.' : 'Nenhum alvo inimigo disponível.');
+        return;
+    }
+    if (rule === 'heal' && targets.length === 1 && targets[0].ref === actor.ref) {
+        executeCombatAction(actor, actor, action);
+        return;
+    }
+    pendingAction = { actorRef: combatActorRef, actionId };
+    showTargetPicker(rule === 'heal' ? 'Escolha quem receberá a cura' : 'Escolha um alvo para o ataque', targets);
+}
+
+function showTargetPicker(title, targets) {
+    $('targetTitle').textContent = title;
+    $('targetList').innerHTML = targets.map(t => {
+        const pct = Math.max(0, Math.min(100, (t.hpCur / t.hpMax) * 100));
+        return `<div class="target-row" onclick="pickTarget('${t.ref}')">
+            <span class="target-icon">${t.icon}</span>
+            <div class="target-info">
+                <div class="target-name">${esc(t.name)}<span class="target-type">${t.kind === 'char' ? 'Personagem' : 'Criatura'}</span></div>
+                <div class="target-hp-row">
+                    <span>❤️</span>
+                    <div class="bar"><div class="bar-fill hp" style="width:${pct}%"></div></div>
+                    <b>${t.hpCur}/${t.hpMax}</b>
+                </div>
+            </div>
+        </div>`;
+    }).join('') || '<div class="info-box">Nenhum alvo disponível.</div>';
+    $('targetModal').classList.add('show');
+}
+function pickTarget(ref) {
+    const target = cbtById(ref);
+    $('targetModal').classList.remove('show');
+    if (!target || !pendingAction) { pendingAction = null; return; }
+    const actorRef = pendingAction.actorRef;
+    const actor = cbtById(actorRef);
+    const action = actor ? combatantActions(actor).find(a => a.id === pendingAction.actionId) : null;
+    pendingAction = null;
+    if (actor && action) {
+        combatActorRef = actorRef;
+        executeCombatAction(actor, target, action);
+    }
+}
+function closeTargetModal() { $('targetModal').classList.remove('show'); pendingAction = null; }
+
+/* Execução da ação */
+function executeCombatAction(actor, target, action) {
+    const rule = actionRule(action);
+    if (action.cost && actor.kind === 'char') {
+        const ch = findChar(actor.ref);
+        if (ch) { ch.manaCur = Math.max(0, ch.manaCur - action.cost); ch.updatedAt = Date.now(); }
+        actor.manaCur = Math.max(0, actor.manaCur - action.cost);
+    }
+    const costNote = (action.cost && actor.kind === 'char') ? ` Mana -${action.cost} (${actor.manaCur}/${actor.manaMax}).` : '';
+
+    if (rule === 'damage') {
+        const isBasic = action.id.indexOf('basic__') === 0;
+        let dmg = 0, rollNote = '', attackNote = '', crit = false;
+        if (isBasic) {
+            const d = rollDie(20);
+            const toHit = d + actor.attack;
+            crit = d === 20;
+            const miss = d === 1;
+            const base = rollFormula(action.dmg);
+            const ch = actor.kind === 'char' ? findChar(actor.ref) : null;
+            const extra = ch ? modFor(ch.attrs.forca) : 0;
+            const raw = base.total + extra;
+            dmg = miss ? 0 : (crit ? raw * 2 : raw);
+            rollNote = `${action.dmg}${extra ? ' + ' + extra : ''} = ${raw}` + (crit ? ` ×2 = ${raw * 2}` : '');
+            attackNote = `Rolagem de ataque: d20 (${d}) + ${actor.attack} = ${toHit}${miss ? ' — falha crítica!' : crit ? ' — CRÍTICO!' : ''}.`;
+        } else {
+            const base = rollFormula(action.dmg);
+            dmg = base.total;
+            rollNote = `${action.dmg} = ${dmg}`;
+        }
+        const before = target.hpCur;
+        const after = Math.max(0, before - dmg);
+        setCombatantHp(target.ref, target.kind, after);
+        const died = before > 0 && after === 0;
+        addCombatLog(`${actor.name} usou ${action.icon} ${action.name} em ${target.name}.${costNote}`, 'skill');
+        if (attackNote) addCombatLog(attackNote, 'info');
+        addCombatLog(`Rolagem: ${rollNote}. Dano causado: ${dmg}.`, crit && dmg > 0 ? 'crit' : 'damage');
+        addCombatLog(`${target.name}: ${before}/${target.hpMax} → ${after}/${target.hpMax} HP.`, 'info');
+        if (died) addCombatLog(`💀 ${target.name} foi derrotado!`, 'damage');
+        floatFeedback(dmg === 0 ? '💫' : '💥', dmg === 0 ? 'ERROU' : '-' + dmg);
+    } else if (rule === 'heal') {
+        const formula = action.dmg.replace('+', '');
+        const base = rollFormula(formula);
+        const amt = base.total;
+        const before = target.hpCur;
+        const after = Math.min(target.hpMax, before + amt);
+        const real = after - before;
+        setCombatantHp(target.ref, target.kind, after);
+        addCombatLog(`${actor.name} usou ${action.icon} ${action.name} em ${target.name}.${costNote}`, 'skill');
+        addCombatLog(`Rolagem de cura: ${formula} = ${amt}. Vida recuperada: ${real}.`, 'heal');
+        addCombatLog(`${target.name}: ${before}/${target.hpMax} → ${after}/${target.hpMax} HP.`, 'info');
+        floatFeedback('💚', '+' + real);
+    } else {
+        addCombatLog(`${actor.name} usou ${action.icon} ${action.name}.${costNote} ${action.desc} (efeito narrativo — sem mecânica numérica no sistema atual).`, 'skill');
+        floatFeedback('✨', 'USADO');
+    }
+    saveCombat(); saveCharacters();
+    closeActionModal();
+    renderCombat(); renderPlayerPicker();
+}
+function resetCombat() {
+    if (!combat.creatures.length && !combat.players.length) { alertToast('O combate já está vazio.'); return; }
+    showConfirm('Limpar combate atual?', 'Todas as criaturas, personagens e o histórico serão removidos do combate atual.', () => {
+        combat = { creatures: [], players: [], history: [] };
+        saveCombat();
+        closeActionModal(); closeTargetModal();
+        renderCombat(); renderPlayerPicker();
+        alertToast('Combate limpo.');
+    });
+}
+
+/* ---------------------------------------------------------
+   15. INICIALIZAÇÃO
    --------------------------------------------------------- */
 document.addEventListener('DOMContentLoaded', () => {
     // Navegação
